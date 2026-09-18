@@ -18,4 +18,4 @@ jobs:
       - name: Check watched repositories
         env:
           TOKEN: ${{ secrets.TOKEN }}
-        run: bash check-watching.sh
+        run: node script.mjs
