@@ -120,14 +120,20 @@ async function main() {
 
   console.log("::group::Checking subscriptions");
   /**
+   * @typedef {Object} UnwatchedRepo
+   * @property {string} fullName
+   * @property {string} reason
+   */
+
+  /**
    * @param {string} fullName
-   * @returns {Promise<string | null>} null if watched, otherwise a description of the unwatched state
+   * @returns {Promise<UnwatchedRepo | null>} null if watched
    */
   async function check(fullName) {
     const res = await api(`/repos/${fullName}/subscription`);
     if (res.status === 404) {
       console.log(`  not watching: ${fullName} (never subscribed)`);
-      return `${fullName} (never subscribed)`;
+      return { fullName, reason: "never subscribed" };
     }
     /** @type {Subscription} */
     const s = await res.json();
@@ -135,11 +141,12 @@ async function main() {
       console.log(`  watching:     ${fullName}`);
       return null;
     }
-    console.log(`  not watching: ${fullName} (${s.reason || "unsubscribed"})`);
-    return `${fullName} (${s.reason || "unsubscribed"})`;
+    const reason = s.reason || "unsubscribed";
+    console.log(`  not watching: ${fullName} (${reason})`);
+    return { fullName, reason };
   }
 
-  /** @type {string[]} */
+  /** @type {UnwatchedRepo[]} */
   const unwatched = (await mapLimit(targets, 10, check)).filter(Boolean);
   console.log(`Checking done. Unwatched: ${unwatched.length} / ${targets.length}`);
   console.log("::endgroup::");
@@ -153,14 +160,14 @@ async function main() {
   ];
   if (unwatched.length) {
     lines.push(`## Not watching (${unwatched.length} of ${repos.length})`, "");
-    unwatched.forEach((r) => lines.push(`- \`${r}\``));
+    unwatched.forEach((r) => lines.push(`- [${r.fullName}](https://github.com/${r.fullName}) — ${r.reason}`));
   }
   const body = lines.join("\n");
 
   if (process.env.GITHUB_STEP_SUMMARY) {
     writeFileSync(
       process.env.GITHUB_STEP_SUMMARY,
-      `# Watch status\nAdmin: ${repos.length}\nNot watching: ${unwatched.length}\n\n${unwatched.map((r) => `- ${r}`).join("\n") || "All watched."}\n`
+      `# Watch status\nAdmin: ${repos.length}\nNot watching: ${unwatched.length}\n\n${unwatched.map((r) => `- [${r.fullName}](https://github.com/${r.fullName}) — ${r.reason}`).join("\n") || "All watched."}\n`
     );
   }
 

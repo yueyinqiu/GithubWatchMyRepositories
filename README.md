@@ -1,6 +1,6 @@
-# Watch My Repositories
+# Watch My Github Repositories!
 
-A GitHub Action that periodically checks which of your repositories (where you have **admin** access) you are **not watching**, and reports them in a single issue.
+A GitHub Action that periodically checks which of your repositories (where you have **admin** access) you are **not watching**, and reports them.
 
 > Background: GitHub deprecated automatic watching of repositories in May 2025, so many maintainers stopped receiving notifications for their own repos.
 > See [community discussion #157470](https://github.com/orgs/community/discussions/157470).
@@ -9,33 +9,30 @@ A GitHub Action that periodically checks which of your repositories (where you h
 
 - Lists every repository where you have admin access (personal + org repos)
 - Checks the watch subscription of each one
-- Files a new issue with the unwatched repos on every run (closing the previous report so you get a notification each time), and closes the report once everything is watched
+- Files a new issue with the unwatched repos on every run (closing the previous report so you get a notification each time)
 - Lets you skip repos via `ignore.txt`
 
 ## Usage
 
-### 1. Create a repository from this template
-
-Click **Use this template** → **Create a new repository** (top-right of the GitHub repo page).
-
-> **Important:** watch **this repository itself** (click **Watch** in the top-right). The report is filed as a new issue here, and you'll only get notified of those issues if you watch the repo.
-
-### 2. Create a Personal Access Token (classic)
+### 1. Create a Personal Access Token (classic)
 
 Go to <https://github.com/settings/tokens/new> and create a classic PAT with the following scopes:
 
 - **`repo`** — to list your repositories and read their subscriptions
-  - If all of your repositories are public, `public_repo` is enough.
 - **`read:user`** — to read your login name
 
-Consider setting an expiration date.
+### 2. Create a repository from this template
+
+Click **Use this template** → **Create a new repository** (top-right of the GitHub repo page).
+
+> **Important: watch your new repository itself**. The report is filed as a new issue here, and you'll only get notified of those issues if you watch the repo.
 
 ### 3. Store the token as a secret
 
 In your new repository, go to **Settings → Secrets and variables → Actions → New repository secret**:
 
 - Name: `TOKEN`
-- Value: the PAT from the previous step
+- Value: the PAT from step 1
 
 ### 4. (Optional) Configure the ignore list
 
@@ -50,7 +47,7 @@ my-user/archived-project
 
 The workflow runs on a schedule and can also be triggered manually.
 
-Edit the `schedule.cron` in `.github/workflows/run.yml` to a time of your own (the default, `23 5 * * 3`, is deliberately an off-peak, non-round time). Avoid round hours like `0 0 * * *` so your job doesn't pile up with everyone else's.
+Edit the `schedule.cron` in `.github/workflows/run.yml` to a time of your own.
 
 To trigger manually: **Actions → "Check watched repositories" → Run workflow**.
 
@@ -71,13 +68,6 @@ After each run:
 
 The script is plain Node.js (`script.mjs`), zero dependencies, using native `fetch`, with concurrent checks to keep the run short.
 
-## Files
-
-- `.github/workflows/run.yml` — workflow definition
-- `script.mjs` — main script
-- `ignore.txt` — ignore list
-
 ## Notes
 
 - The repository list includes **forks**. To exclude them, list them in `ignore.txt` or filter the `fork` field in the script.
-- To cover org repositories where you're admin, `repo` scope is enough (a classic PAT covers personal + all orgs at once).
