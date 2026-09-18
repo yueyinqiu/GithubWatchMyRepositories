@@ -16,25 +16,27 @@ import { readFileSync, writeFileSync } from "node:fs";
  */
 
 const TOKEN = process.env.TOKEN;
+const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 const REPO = process.env.GITHUB_REPOSITORY;
 const ISSUE_TITLE = "[auto] Repositories I am not watching";
 const IGNORE_FILE = "ignore.txt";
 
-if (!TOKEN || !REPO) {
-  console.error("::error::TOKEN and GITHUB_REPOSITORY are required.");
+if (!TOKEN || !GITHUB_TOKEN || !REPO) {
+  console.error("::error::TOKEN, GITHUB_TOKEN and GITHUB_REPOSITORY are required.");
   process.exit(1);
 }
 
 /**
  * @param {string} path
  * @param {RequestInit} [opts]
+ * @param {string} [token]
  * @returns {Promise<Response>}
  */
-async function api(path, opts = {}) {
+async function api(path, opts = {}, token = TOKEN) {
   return fetch(`https://api.github.com${path}`, {
     ...opts,
     headers: {
-      Authorization: `Bearer ${TOKEN}`,
+      Authorization: `Bearer ${token}`,
       Accept: "application/vnd.github+json",
       "X-GitHub-Api-Version": "2022-11-28",
       ...opts.headers,
@@ -128,21 +130,21 @@ writeFileSync(
 );
 
 /** @type {Issue[]} */
-const issues = await (await api(`/repos/${REPO}/issues?state=open&per_page=100`)).json();
+const issues = await (await api(`/repos/${REPO}/issues?state=open&per_page=100`, {}, GITHUB_TOKEN)).json();
 const existing = issues.find((i) => i.title === ISSUE_TITLE)?.number;
 
 if (!unwatched.length) {
   if (existing) {
-    await api(`/repos/${REPO}/issues/${existing}`, { method: "PATCH", body: JSON.stringify({ state: "closed" }) });
+    await api(`/repos/${REPO}/issues/${existing}`, { method: "PATCH", body: JSON.stringify({ state: "closed" }) }, GITHUB_TOKEN);
     console.log(`Closed issue #${existing}.`);
   }
   process.exit(0);
 }
 
 if (existing) {
-  await api(`/repos/${REPO}/issues/${existing}`, { method: "PATCH", body: JSON.stringify({ body }) });
+  await api(`/repos/${REPO}/issues/${existing}`, { method: "PATCH", body: JSON.stringify({ body }) }, GITHUB_TOKEN);
   console.log(`Updated issue #${existing}.`);
 } else {
-  const res = await api(`/repos/${REPO}/issues`, { method: "POST", body: JSON.stringify({ title: ISSUE_TITLE, body }) });
+  const res = await api(`/repos/${REPO}/issues`, { method: "POST", body: JSON.stringify({ title: ISSUE_TITLE, body }) }, GITHUB_TOKEN);
   console.log(`Created issue #${(await res.json()).number}.`);
 }
