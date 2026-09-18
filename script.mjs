@@ -154,9 +154,6 @@ async function main() {
   if (unwatched.length) {
     lines.push(`## Not watching (${unwatched.length} of ${repos.length})`, "");
     unwatched.forEach((r) => lines.push(`- \`${r}\``));
-    lines.push("", "To watch one, open the repo and click **Watch**, or run:", "```bash", "gh api -X PUT repos/OWNER/REPO/subscription -f subscribed=true", "```");
-  } else {
-    lines.push("All admin repositories are being watched. Nothing to do here.");
   }
   const body = lines.join("\n");
 
@@ -184,12 +181,11 @@ async function main() {
   }
 
   if (existing) {
-    await api(`/repos/${REPO}/issues/${existing}`, { method: "PATCH", body: JSON.stringify({ body }) }, GITHUB_TOKEN);
-    console.log(`Updated issue #${existing}.`);
-  } else {
-    const res = await api(`/repos/${REPO}/issues`, { method: "POST", body: JSON.stringify({ title: ISSUE_TITLE, body }) }, GITHUB_TOKEN);
-    console.log(`Created issue #${(await res.json()).number}.`);
+    await api(`/repos/${REPO}/issues/${existing}`, { method: "PATCH", body: JSON.stringify({ state: "closed" }) }, GITHUB_TOKEN);
+    console.log(`Closed superseded issue #${existing}.`);
   }
+  const res = await api(`/repos/${REPO}/issues`, { method: "POST", body: JSON.stringify({ title: ISSUE_TITLE, body }) }, GITHUB_TOKEN);
+  console.log(`Created issue #${(await res.json()).number}.`);
   console.log("::endgroup::");
 }
 
