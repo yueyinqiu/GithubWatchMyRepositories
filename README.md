@@ -71,3 +71,4 @@ The script is plain Node.js (`script.mjs`), zero dependencies, using native `fet
 ## Notes
 
 - The repository list includes **forks**. To exclude them, list them in `ignore.txt` or filter the `fork` field in the script.
+- This project was mainly by AI.
