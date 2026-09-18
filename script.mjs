@@ -21,8 +21,16 @@ const REPO = process.env.GITHUB_REPOSITORY;
 const ISSUE_TITLE = "[auto] Repositories I am not watching";
 const IGNORE_FILE = "ignore.txt";
 
-if (!TOKEN || !GITHUB_TOKEN || !REPO) {
-  console.error("::error::TOKEN, GITHUB_TOKEN and GITHUB_REPOSITORY are required.");
+if (!TOKEN) {
+  console.error("::error::TOKEN is missing.");
+  process.exit(1);
+}
+if (!GITHUB_TOKEN) {
+  console.error("::error::GITHUB_TOKEN is missing.");
+  process.exit(1);
+}
+if (!REPO) {
+  console.error("::error::GITHUB_REPOSITORY is missing.");
   process.exit(1);
 }
 
