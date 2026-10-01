@@ -20,6 +20,7 @@ const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 const REPO = process.env.GITHUB_REPOSITORY;
 const ISSUE_TITLE = "[auto] Repositories I am not watching";
 const IGNORE_FILE = "ignore.txt";
+const IGNORE_ORGS_FILE = "ignore-orgs.txt";
 
 if (!TOKEN) {
   console.error("::error::TOKEN is missing.");
@@ -101,6 +102,55 @@ async function main() {
   console.log(`Total admin repos: ${repos.length}`);
   console.log("::endgroup::");
 
+  console.log("::group::Checking for blocked organizations");
+  /** @type {Set<string>} */
+  let ignoredOrgs;
+  try {
+    ignoredOrgs = new Set(
+      readFileSync(IGNORE_ORGS_FILE, "utf8")
+        .split("\n")
+        .map((l) => l.replace(/\s*#.*$/, "").trim())
+        .filter(Boolean)
+    );
+  } catch {
+    ignoredOrgs = new Set();
+  }
+
+  /** @type {{ login: string; message: string }[]} */
+  const blockedOrgs = [];
+  try {
+    const orgs = await (await api("/user/orgs?per_page=100")).json();
+    const repoOwners = new Set(repos.map((r) => r.split("/")[0]));
+    for (const org of orgs) {
+      if (repoOwners.has(org.login) || ignoredOrgs.has(org.login)) continue;
+      const res = await fetch(`https://api.github.com/orgs/${org.login}/memberships/${login}`, {
+        headers: {
+          Authorization: `Bearer ${TOKEN}`,
+          Accept: "application/vnd.github+json",
+          "X-GitHub-Api-Version": "2022-11-28",
+        },
+      });
+      if (res.status === 403) {
+        let message = "";
+        try {
+          message = (await res.json()).message || "";
+        } catch {}
+        console.log(
+          `::warning::Organization '${org.login}' is blocking this token, so its repositories are missing from this report. ${message}`
+        );
+        blockedOrgs.push({ login: org.login, message });
+      }
+    }
+  } catch (err) {
+    console.log(`  (could not check organizations: ${err.message})`);
+  }
+  console.log(
+    blockedOrgs.length
+      ? `Blocked organizations: ${blockedOrgs.map((o) => o.login).join(", ")}`
+      : "No blocked organizations detected."
+  );
+  console.log("::endgroup::");
+
   /** @type {Set<string>} */
   let ignored;
   try {
@@ -161,13 +211,25 @@ async function main() {
   if (unwatched.length) {
     lines.push(`## Not watching (${unwatched.length} of ${repos.length})`, "");
     unwatched.forEach((r) => lines.push(`- [${r.fullName}](https://github.com/${r.fullName}) — ${r.reason}`));
+  } else if (blockedOrgs.length) {
+    lines.push("All visible repositories are watched.", "");
+  }
+  if (blockedOrgs.length) {
+    lines.push(
+      "",
+      `## ⚠️ Blocked organizations (${blockedOrgs.length})`,
+      "",
+      "These organizations rejected this token, so their repositories are **missing** from this report. Fix the token or the organization's access policy, then re-run.",
+      ""
+    );
+    blockedOrgs.forEach((o) => lines.push(`- \`${o.login}\` — ${o.message}`));
   }
   const body = lines.join("\n");
 
   if (process.env.GITHUB_STEP_SUMMARY) {
     writeFileSync(
       process.env.GITHUB_STEP_SUMMARY,
-      `# Watch status\nAdmin: ${repos.length}\nNot watching: ${unwatched.length}\n\n${unwatched.map((r) => `- [${r.fullName}](https://github.com/${r.fullName}) — ${r.reason}`).join("\n") || "All watched."}\n`
+      `# Watch status\nAdmin: ${repos.length}\nNot watching: ${unwatched.length}${blockedOrgs.length ? `\nBlocked organizations: ${blockedOrgs.map((o) => o.login).join(", ")}` : ""}\n\n${unwatched.map((r) => `- [${r.fullName}](https://github.com/${r.fullName}) — ${r.reason}`).join("\n") || "All watched."}\n`
     );
   }
 
@@ -176,12 +238,12 @@ async function main() {
   const issues = await (await api(`/repos/${REPO}/issues?state=open&per_page=100`, {}, GITHUB_TOKEN)).json();
   const existing = issues.find((i) => i.title === ISSUE_TITLE)?.number;
 
-  if (!unwatched.length) {
+  if (!unwatched.length && !blockedOrgs.length) {
     if (existing) {
       await api(`/repos/${REPO}/issues/${existing}`, { method: "PATCH", body: JSON.stringify({ state: "closed" }) }, GITHUB_TOKEN);
       console.log(`Closed issue #${existing}.`);
     } else {
-      console.log("No unwatched repos and no open report issue. Nothing to do.");
+      console.log("No unwatched repos, no blocked organizations, and no open report issue. Nothing to do.");
     }
     console.log("::endgroup::");
     return;

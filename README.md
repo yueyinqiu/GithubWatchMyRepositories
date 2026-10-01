@@ -43,6 +43,8 @@ Edit `ignore.txt` in the repo root. One `owner/repo` per line; lines starting wi
 my-user/archived-project
 ```
 
+There is also an `ignore-orgs.txt` for silencing warnings about organizations that block your token (see below). One organization login per line, same format as `ignore.txt`.
+
 ### 5. Adjust the schedule
 
 The workflow runs on a schedule and can also be triggered manually.
@@ -59,6 +61,18 @@ After each run:
 - If everything is watched, any open report issue is closed.
 - A summary is also written to the run's **Step Summary** for quick review.
 
+### Blocked organizations
+
+Some organizations reject certain tokens entirely (for example, an organization may forbid classic PATs whose lifetime exceeds 366 days, or forbid classic PATs altogether). When that happens their repositories silently disappear from the report.
+
+The script detects this and:
+
+- emits a `::warning::` annotation on the run,
+- files a report issue even if there are no unwatched repositories,
+- lists the blocked organizations (and GitHub's reason) in the issue body.
+
+To silence a specific organization (for example one you know is permanently incompatible with your token), add its login to `ignore-orgs.txt`.
+
 ## How it works
 
 | Purpose | Token used |
@@ -71,4 +85,5 @@ The script is plain Node.js (`script.mjs`), zero dependencies, using native `fet
 ## Notes
 
 - The repository list includes **forks**. To exclude them, list them in `ignore.txt` or filter the `fork` field in the script.
+- Organizations that block your token are reported separately; silence them via `ignore-orgs.txt`.
 - This project was mainly by AI.
